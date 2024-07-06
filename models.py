@@ -1,5 +1,13 @@
 from datetime import datetime
 from extensions import db, bcrypt
+from extensions import db
+from datetime import datetime, timedelta
+
+class ResetToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(120), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow() + timedelta(hours=1))
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
