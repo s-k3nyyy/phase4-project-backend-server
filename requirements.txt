@@ -1,4 +1,4 @@
-Flask
-Flask-Bcrypt
-Flask-SQLAlchemy
-Flask-Migrate
+flask
+flask_migrate
+flask_sqlalchemy
+flask_cors
