@@ -38,10 +38,18 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    username = data['username']
-    password = data['password']
+    username_or_email = data.get('username_or_email')
+    password = data.get('password')
 
-    user = User.query.filter_by(username=username).first()
+    if not username_or_email or not password:
+        return jsonify({'error': 'Missing username/email or password'}), 400
+
+    # Check if username_or_email is an email
+    user = User.query.filter_by(email=username_or_email).first()
+
+    # If not found by email, check by username
+    if not user:
+        user = User.query.filter_by(username=username_or_email).first()
 
     if not user or not bcrypt.check_password_hash(user.password, password):
         return jsonify({'error': 'Invalid username or password'}), 401
