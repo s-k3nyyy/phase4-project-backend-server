@@ -1,24 +1,29 @@
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from models import db, User
 from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request, jsonify
+from flask_restful import Api, Resource
+# from auth import jwt, auth_bp, bcrypt
+# from flask_jwt_extended import jwt_required, current_user
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for development, restrict as needed
 
-# Load configuration
-app.config.from_pyfile('config.py')
+# app.config.from_pyfile('config.py')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.json.compact = False
 
-# Initialize SQLAlchemy and Flask-Migrate
-db = SQLAlchemy(app)
+SECRET_KEY = 'your_secret_key_here'
+
+db.init_app(app)
 migrate = Migrate(app, db)
-
-# Initialize Bcrypt
 bcrypt = Bcrypt(app)
 
-# Import models (assuming models are defined in models.py)
-from models import User
+
 
 # Routes
 @app.route('/register', methods=['POST'])
