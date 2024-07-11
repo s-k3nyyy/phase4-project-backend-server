@@ -1,32 +1,32 @@
 import requests
-import json
 
-# Flask server URL where your application is running
-BASE_URL = 'http://localhost:5000'
+# Hardcoded base URL for local development
+BASE_URL = "http://localhost:5000"
 
-def register_admin(username, email, password):
-    url = f'{BASE_URL}/register/admin'
+def register_admin():
+    username = input("Enter admin username: ")
+    password = input("Enter admin password: ")
+
+    url = f"{BASE_URL}/register/admin"
     data = {
-        'username': username,
-        'email': email,
-        'password': password
+        "username": username,
+        "password": password
     }
     headers = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json"
     }
 
-    try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        if response.status_code == 201:
-            print('Admin registered successfully.')
-        else:
-            print(f'Failed to register admin: {response.json()}')
-    except requests.exceptions.RequestException as e:
-        print(f'Error registering admin: {str(e)}')
+    response = requests.post(url, json=data, headers=headers)
+    if response.status_code == 201:
+        print("Admin registered successfully.")
+    elif response.status_code == 400:
+        print("Admin already exists.")
+    else:
+        print(f"Failed to register admin. Status code: {response.status_code}")
+        print(response.text)
 
-if __name__ == '__main__':
-    username = input('Enter admin username: ')
-    email = input('Enter admin email: ')
-    password = input('Enter admin password: ')
+def main():
+    register_admin()
 
-    register_admin(username, email, password)
+if __name__ == "__main__":
+    main()
