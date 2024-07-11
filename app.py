@@ -47,8 +47,6 @@ def check_admin():
 
 
 class Users(Resource):
-    @jwt_required()
-    @allow('admin')
     def get(self):
         users = [user.to_dict() for user in User.query.all()]
         return make_response(users, 200)
