@@ -1,11 +1,12 @@
-from models import db, EventBookmark, Payment, Ticket, Event, User, Role, TokenBlocklist
-from flask_migrate import Migrate
 from flask import Flask, jsonify, request, make_response
-from flask_restful import Api, Resource
-from auth import jwt, auth_bp, bcrypt, allow
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from sqlalchemy.orm import Session
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_cors import CORS
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from auth import jwt, auth_bp, bcrypt, allow
+from models import db, EventBookmark, Payment, Ticket, Event, User, Role, TokenBlocklist
+from flask_restful import Api, Resource
+from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 
 
