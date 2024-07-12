@@ -1,7 +1,8 @@
+
 from datetime import datetime, timedelta
 import logging
 
-from flask import Flask
+from flask import Flask, jsonify, request, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, create_refresh_token
@@ -18,7 +19,10 @@ app.config.from_object(Config)
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+# Example: Restrict CORS to specific origins and methods
+cors = CORS(app, resources={
+    r"/*": {"origins": "http://localhost:5173"}
+})
 api = Api(app)
 migrate = Migrate(app, db)
 
@@ -47,17 +51,15 @@ class Admin(db.Model):
         return f'<Admin {self.username}>'
 
 class Event(db.Model):
+    __tablename__ = 'events'
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)
     ticket_price = db.Column(db.Float, nullable=False)
     photo_url = db.Column(db.String(200))
     event_date = db.Column(db.DateTime, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f'<Event {self.title}>'
-
+    tickets_remaining = db.Column(db.Integer, default=0)
     def serialize(self):
         return {
             'id': self.id,
@@ -66,10 +68,13 @@ class Event(db.Model):
             'ticket_price': self.ticket_price,
             'photo_url': self.photo_url,
             'event_date': self.event_date.isoformat(),
-            'created_at': self.created_at.isoformat()
+            'tickets_remaining': self.tickets_remaining
         }
 
-# Resources
+    def __repr__(self):
+        return f'<Event {self.title}>'
+
+# Resource classes
 class UserRegister(Resource):
     def post(self):
         parser = reqparse.RequestParser()
@@ -94,6 +99,7 @@ class UserRegister(Resource):
         db.session.commit()
 
         return {'message': 'User registered successfully'}, 201
+    
 
 class AdminRegister(Resource):
     def post(self):
@@ -115,6 +121,7 @@ class AdminRegister(Resource):
         db.session.commit()
 
         return {'message': 'Admin registered successfully'}, 201
+
 class UserLogin(Resource):
     def post(self):
         parser = reqparse.RequestParser()
@@ -129,7 +136,7 @@ class UserLogin(Resource):
         if user and bcrypt.check_password_hash(user.password_hash, password):
             access_token = create_access_token(identity=user.id, expires_delta=timedelta(minutes=30))
             refresh_token = create_refresh_token(identity=user.id)
-            return {'access_token': access_token, 'efresh_token': refresh_token}, 200
+            return {'access_token': access_token, 'refresh_token': refresh_token}, 200
         return {'message': 'Invalid credentials'}, 401
 
 class AdminLogin(Resource):
@@ -146,8 +153,12 @@ class AdminLogin(Resource):
         if admin and bcrypt.check_password_hash(admin.password_hash, password):
             access_token = create_access_token(identity=admin.id, expires_delta=timedelta(minutes=30))
             refresh_token = create_refresh_token(identity=admin.id)
-            return {'access_token': access_token, 'efresh_token': refresh_token}, 200
-        return {'message': 'Invalid credentials'}, 401
+            response = make_response({'access_token': access_token, 'refresh_token': refresh_token}, 200)
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response
+        response = make_response({'message': 'Invalid credentials'}, 401)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
 
 class TokenResource(Resource):
     @jwt_required(refresh=True)
@@ -155,7 +166,7 @@ class TokenResource(Resource):
         user_id = get_jwt_identity()
         access_token = create_access_token(identity=user_id, expires_delta=timedelta(minutes=30))
         refresh_token = create_refresh_token(identity=user_id)
-        return {'access_token': access_token, 'efresh_token': refresh_token}, 200
+        return {'access_token': access_token, 'refresh_token': refresh_token}, 200
 
     @jwt_required(refresh=False)
     def get(self):
@@ -164,8 +175,12 @@ class TokenResource(Resource):
 
 class EventList(Resource):
     def get(self):
-        events = Event.query.all()
-        return [event.serialize() for event in events], 200
+        try:
+            events = Event.query.all()
+            return jsonify([event.serialize() for event in events])
+        except Exception as e:
+            app.logger.error(f"Error fetching events: {e}")
+            return {'message': 'Failed to fetch events'}, 500
 
 class EventCreate(Resource):
     @jwt_required()
@@ -176,6 +191,7 @@ class EventCreate(Resource):
         parser.add_argument('ticket_price', type=float, required=True, help='Ticket price is required')
         parser.add_argument('photo_url', type=str, required=True, help='Photo URL is required')
         parser.add_argument('event_date', type=str, required=True, help='Event date is required')
+        parser.add_argument('tickets_remaining', type=int, required=True, help='Tickets remaining is required')
         args = parser.parse_args()
 
         title = args['title']
@@ -183,18 +199,97 @@ class EventCreate(Resource):
         ticket_price = args['ticket_price']
         photo_url = args['photo_url']
         event_date = datetime.fromisoformat(args['event_date'])
+        tickets_remaining = args['tickets_remaining']
 
-        new_event = Event(title=title, description=description, ticket_price=ticket_price, photo_url=photo_url, event_date=event_date)
-        db.session.add(new_event)
-        db.session.commit()
+        try:
+            new_event = Event(
+                title=title, description=description, ticket_price=ticket_price, 
+                photo_url=photo_url, event_date=event_date, 
+                tickets_remaining=tickets_remaining
+            )
+            db.session.add(new_event)
+            db.session.commit()
 
-        return {'message': 'Event created successfully'}, 201
-@app.after_request
-def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    return response
+            return {'message': 'Event created successfully'}, 201
+
+        except Exception as e:
+            app.logger.error(f"Error creating event: {e}")
+            return {'message': 'Failed to create event'}, 500
+class UsersListResource(Resource):
+    def get(self):
+        users = User.query.all()
+        user_list = []
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number
+            }
+            user_list.append(user_data)
+        return jsonify(user_list)
+class EventUpdate(Resource):
+    @jwt_required()
+    def put(self, event_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument('title', type=str, required=True, help='Title is required')
+        parser.add_argument('description', type=str, required=True, help='Description is required')
+        parser.add_argument('ticket_price', type=float, required=True, help='Ticket price is required')
+        parser.add_argument('photo_url', type=str, required=True, help='Photo URL is required')
+        parser.add_argument('event_date', type=str, required=True, help='Event date is required')
+        parser.add_argument('tickets_remaining', type=int, required=True, help='Tickets remaining is required')
+        args = parser.parse_args()
+
+        try:
+            event = Event.query.get(event_id)
+            if not event:
+                return {'message': 'Event not found'}, 404
+
+            event.title = args['title']
+            event.description = args['description']
+            event.ticket_price = args['ticket_price']
+            event.photo_url = args['photo_url']
+            event.event_date = datetime.fromisoformat(args['event_date'])
+            event.tickets_remaining = args['tickets_remaining']
+
+            db.session.commit()
+            return {'message': 'Event updated successfully'}, 200
+
+        except Exception as e:
+            app.logger.error(f"Error updating event: {e}")
+            return {'message': 'Failed to update event'}, 500
+        
+class UserDelete(Resource):
+    @jwt_required()
+    def delete(self, user_id):
+        try:
+            user = User.query.get(user_id)
+            if not user:
+                return {'message': 'User not found'}, 404
+
+            db.session.delete(user)
+            db.session.commit()
+            return {'message': 'User deleted successfully'}, 200
+
+        except Exception as e:
+            app.logger.error(f"Error deleting user: {e}")
+            return {'message': 'Failed to delete user'}, 500
+
+class EventDelete(Resource):
+    @jwt_required()
+    def delete(self, event_id):
+        try:
+            event = Event.query.get(event_id)
+            if not event:
+                return {'message': 'Event not found'}, 404
+
+            db.session.delete(event)
+            db.session.commit()
+            return {'message': 'Event deleted successfully'}, 200
+
+        except Exception as e:
+            app.logger.error(f"Error deleting event: {e}")
+            return {'message': 'Failed to delete event'}, 500
 
 # API routes
 api.add_resource(UserRegister, '/register')
@@ -203,7 +298,11 @@ api.add_resource(UserLogin, '/login')
 api.add_resource(AdminLogin, '/admin/login')
 api.add_resource(TokenResource, '/token')
 api.add_resource(EventList, '/events')
-api.add_resource(EventCreate, '/events/create')
+api.add_resource(EventCreate, '/event/create')
+api.add_resource(UsersListResource, '/users')
+api.add_resource(EventUpdate, '/event/update/<int:event_id>')
+api.add_resource(EventDelete, '/event/delete/<int:event_id>')
+api.add_resource(UserDelete, '/user/delete/<int:user_id>')
 
 if __name__ == '__main__':
     app.run(debug=True)
