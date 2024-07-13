@@ -1,32 +1,39 @@
 import requests
+import cmd
+import getpass
 
-# Hardcoded base URL for local development
-BASE_URL = "http://localhost:5000"
+BASE_URL = 'http://127.0.0.1:5000'
 
-def register_admin():
-    username = input("Enter admin username: ")
-    password = input("Enter admin password: ")
+class AdminCLI(cmd.Cmd):
+    intro = 'Welcome to the Admin registration CLI. Type help or ? to list commands.\n'
+    prompt = '(admin-cli) '
 
-    url = f"{BASE_URL}/register/admin"
-    data = {
-        "username": username,
-        "password": password
-    }
-    headers = {
-        "Content-Type": "application/json"
-    }
+    def do_register(self, arg):
+        'Register a new admin: register'
+        try:
+            username = input('Enter your username: ')
+            password = getpass.getpass('Enter your password: ')
+            self.register_admin(username, password)
+        except Exception as e:
+            print(f'Error: {e}')
 
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code == 201:
-        print("Admin registered successfully.")
-    elif response.status_code == 400:
-        print("Admin already exists.")
-    else:
-        print(f"Failed to register admin. Status code: {response.status_code}")
-        print(response.text)
+    def register_admin(self, username, password):
+        url = f'{BASE_URL}/admin/register'
+        data = {
+            'username': username,
+            'password': password
+        }
+        response = requests.post(url, json=data)
+        
+        if response.status_code == 201:
+            print('Admin registered successfully')
+        else:
+            print(f'Failed to register admin: {response.json()}')
 
-def main():
-    register_admin()
+    def do_exit(self, arg):
+        'Exit the CLI'
+        print('Exiting...')
+        return True
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    AdminCLI().cmdloop()

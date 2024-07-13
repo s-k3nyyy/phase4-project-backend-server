@@ -1,4 +1,3 @@
-# run.py
 
 from datetime import datetime, timedelta
 import logging
@@ -20,6 +19,7 @@ app.config.from_object(Config)
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
+# Example: Restrict CORS to specific origins and methods
 cors = CORS(app, resources={
     r"/*": {"origins": "http://localhost:5173"}
 })
@@ -60,7 +60,6 @@ class Event(db.Model):
     photo_url = db.Column(db.String(200))
     event_date = db.Column(db.DateTime, nullable=False)
     tickets_remaining = db.Column(db.Integer, default=0)
-
     def serialize(self):
         return {
             'id': self.id,
@@ -100,6 +99,7 @@ class UserRegister(Resource):
         db.session.commit()
 
         return {'message': 'User registered successfully'}, 201
+    
 
 class AdminRegister(Resource):
     def post(self):
@@ -215,7 +215,19 @@ class EventCreate(Resource):
         except Exception as e:
             app.logger.error(f"Error creating event: {e}")
             return {'message': 'Failed to create event'}, 500
-
+class UsersListResource(Resource):
+    def get(self):
+        users = User.query.all()
+        user_list = []
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number
+            }
+            user_list.append(user_data)
+        return jsonify(user_list)
 class EventUpdate(Resource):
     @jwt_required()
     def put(self, event_id):
@@ -246,6 +258,22 @@ class EventUpdate(Resource):
         except Exception as e:
             app.logger.error(f"Error updating event: {e}")
             return {'message': 'Failed to update event'}, 500
+        
+class UserDelete(Resource):
+    @jwt_required()
+    def delete(self, user_id):
+        try:
+            user = User.query.get(user_id)
+            if not user:
+                return {'message': 'User not found'}, 404
+
+            db.session.delete(user)
+            db.session.commit()
+            return {'message': 'User deleted successfully'}, 200
+
+        except Exception as e:
+            app.logger.error(f"Error deleting user: {e}")
+            return {'message': 'Failed to delete user'}, 500
 
 class EventDelete(Resource):
     @jwt_required()
@@ -271,8 +299,10 @@ api.add_resource(AdminLogin, '/admin/login')
 api.add_resource(TokenResource, '/token')
 api.add_resource(EventList, '/events')
 api.add_resource(EventCreate, '/event/create')
+api.add_resource(UsersListResource, '/users')
 api.add_resource(EventUpdate, '/event/update/<int:event_id>')
 api.add_resource(EventDelete, '/event/delete/<int:event_id>')
+api.add_resource(UserDelete, '/user/delete/<int:user_id>')
 
 if __name__ == '__main__':
     app.run(debug=True)
