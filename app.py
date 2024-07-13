@@ -10,19 +10,22 @@ from flask_cors import CORS
 from flask_restful import Api, Resource, reqparse
 from flask_migrate import Migrate
 from config import Config
+import secrets
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
+app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
+app.config['JWT_COOKIE_CSRF_PROTECT'] = True
+app.config['JWT_ACCESS_CSRF_HEADER_NAME'] = 'X-CSRF-TOKEN'
+app.config['JWT_COOKIE_SECURE'] = True  # Ensure HTTPS
+app.config['JWT_COOKIE_SAMESITE'] = 'None'  # Cross-site cookies
 
 # Initialize extensions
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-# Example: Restrict CORS to specific origins and methods
-cors = CORS(app, resources={
-    r"/*": {"origins": "http://localhost:5173"}
-})
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 api = Api(app)
 migrate = Migrate(app, db)
 
@@ -30,6 +33,7 @@ migrate = Migrate(app, db)
 logging.basicConfig(level=logging.INFO)
 
 # Models
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -37,6 +41,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    jwt_key = db.Column(db.String(64), unique=True, nullable=False, default=lambda: secrets.token_urlsafe(32))
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -75,6 +80,13 @@ class Event(db.Model):
         return f'<Event {self.title}>'
 
 # Resource classes
+@jwt.unauthorized_loader
+@jwt.invalid_token_loader
+def custom_error_response(callback):
+    resp = callback('Missing or invalid token')
+    resp.set_cookie('access_token_cookie', '', max_age=0) 
+    resp.set_cookie('refresh_token_cookie', '', max_age=0)
+    return resp
 class UserRegister(Resource):
     def post(self):
         parser = reqparse.RequestParser()
@@ -94,12 +106,12 @@ class UserRegister(Resource):
             return {'message': 'Username already exists'}, 400
 
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        new_user = User(username=username, email=email, password_hash=hashed_password, phone_number=phone_number)
+        jwt_key = secrets.token_urlsafe(32)  # Generate a new JWT key
+        new_user = User(username=username, email=email, password_hash=hashed_password, phone_number=phone_number, jwt_key=jwt_key)
         db.session.add(new_user)
         db.session.commit()
 
-        return {'message': 'User registered successfully'}, 201
-    
+        return {'message': 'User registered successfully', 'jwt_key': jwt_key}, 201
 
 class AdminRegister(Resource):
     def post(self):
@@ -138,6 +150,7 @@ class UserLogin(Resource):
             refresh_token = create_refresh_token(identity=user.id)
             return {'access_token': access_token, 'refresh_token': refresh_token}, 200
         return {'message': 'Invalid credentials'}, 401
+    
 
 class AdminLogin(Resource):
     def post(self):
@@ -160,18 +173,6 @@ class AdminLogin(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
 
-class TokenResource(Resource):
-    @jwt_required(refresh=True)
-    def post(self):
-        user_id = get_jwt_identity()
-        access_token = create_access_token(identity=user_id, expires_delta=timedelta(minutes=30))
-        refresh_token = create_refresh_token(identity=user_id)
-        return {'access_token': access_token, 'refresh_token': refresh_token}, 200
-
-    @jwt_required(refresh=False)
-    def get(self):
-        user_id = get_jwt_identity()
-        return {'access_token': create_access_token(identity=user_id, expires_delta=timedelta(minutes=30))}, 200
 
 class EventList(Resource):
     def get(self):
@@ -215,6 +216,7 @@ class EventCreate(Resource):
         except Exception as e:
             app.logger.error(f"Error creating event: {e}")
             return {'message': 'Failed to create event'}, 500
+
 class UsersListResource(Resource):
     def get(self):
         users = User.query.all()
@@ -274,6 +276,13 @@ class UserDelete(Resource):
         except Exception as e:
             app.logger.error(f"Error deleting user: {e}")
             return {'message': 'Failed to delete user'}, 500
+class TokenValidateResource(Resource):
+    @jwt_required()
+    def get(self):
+        # Token is valid, return success message or any data you need
+        current_user = get_jwt_identity()
+        return {'message': 'Valid token for user {}'.format(current_user)}, 200
+
 
 class EventDelete(Resource):
     @jwt_required()
@@ -290,19 +299,44 @@ class EventDelete(Resource):
         except Exception as e:
             app.logger.error(f"Error deleting event: {e}")
             return {'message': 'Failed to delete event'}, 500
+class UserLogin(Resource):
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('username_or_email', type=str, required=True, help='Username or email is required')
+        parser.add_argument('password', type=str, required=True, help='Password is required')
+        args = parser.parse_args()
+
+        username_or_email = args['username_or_email']
+        password = args['password']
+
+        user = User.query.filter((User.username == username_or_email) | (User.email == username_or_email)).first()
+        if user and bcrypt.check_password_hash(user.password_hash, password):
+            access_token = create_access_token(identity=user.id, expires_delta=timedelta(minutes=30))
+            refresh_token = create_refresh_token(identity=user.id)
+            return {'access_token': access_token, 'refresh_token': refresh_token}, 200
+        return {'message': 'Invalid credentials'}, 401
+class TokenRefresh(Resource):
+    @jwt_required(refresh=True)
+    def post(self):
+        current_user = get_jwt_identity()
+        new_access_token = create_access_token(identity=current_user, fresh=False)
+        return {'access_token': new_access_token}, 200
+
 
 # API routes
 api.add_resource(UserRegister, '/register')
 api.add_resource(AdminRegister, '/admin/register')
 api.add_resource(UserLogin, '/login')
 api.add_resource(AdminLogin, '/admin/login')
-api.add_resource(TokenResource, '/token')
 api.add_resource(EventList, '/events')
 api.add_resource(EventCreate, '/event/create')
 api.add_resource(UsersListResource, '/users')
+api.add_resource(TokenRefresh, '/refresh')
 api.add_resource(EventUpdate, '/event/update/<int:event_id>')
 api.add_resource(EventDelete, '/event/delete/<int:event_id>')
 api.add_resource(UserDelete, '/user/delete/<int:user_id>')
+api.add_resource(TokenValidateResource, '/token/validate')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
