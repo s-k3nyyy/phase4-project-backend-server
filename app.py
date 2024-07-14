@@ -151,6 +151,39 @@ class EventBookmarks(Resource):
     
 api.add_resource(EventBookmarks, '/eventbookmarks')
 
+class BuyTicket(Resource):
+    @jwt_required()
+    def post(self, event_id):
+        try:
+            user_id = get_jwt_identity()
+            ticket_type = request.json.get('ticket_type')
+            price = request.json.get('price')
+            ticket = Ticket(user_id=user_id, event_id=event_id, ticket_type=ticket_type, price=price, status='purchased')
+            db.session.add(ticket)
+            db.session.commit()
+            return jsonify({"message": "Ticket purchased successfully"}), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"message": "Failed to purchase ticket", "error": str(e)}), 400
+api.add_resource(BuyTicket, '/events/<int:event_id>/buy_ticket')
+
+
+class BookmarkEvent(Resource):
+    @jwt_required()
+    def post(self, event_id):
+        try:
+            user_id = get_jwt_identity()
+            bookmark = EventBookmark(user_id=user_id, event_id=event_id)
+            db.session.add(bookmark)
+            db.session.commit()
+            return jsonify({"message": "Event bookmarked successfully"}), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"message": "Failed to bookmark event", "error": str(e)}), 400
+
+api.add_resource(BookmarkEvent, '/events/<int:event_id>/bookmark')
+
+
 
 
 class EventBookmarkById(Resource):
@@ -418,6 +451,12 @@ class Events(Resource):
     @allow('admin')
     def post(self):
         data = request.get_json()
+        organizer_id = data.get('organizer_id')
+
+        user = User.query.get(organizer_id)
+        if not user:
+            return jsonify({"error": "Organizer not found"}), 400
+        
         try:
             date_time = datetime.strptime(data.get('date_time'), '%Y-%m-%d %H:%M:%S')
 
@@ -426,7 +465,7 @@ class Events(Resource):
                 description=data.get('description'),
                 location=data.get('location'),
                 date_time=date_time,
-                organizer_id=data.get('organizer_id')
+                organizer_id=organizer_id
             )
 
             db.session.add(new_event)
@@ -518,6 +557,9 @@ class RoleById(Resource):
 
 
 api.add_resource(RoleById, '/roles/<int:id>')
+
+
+
 
 if __name__ == '__main__':
     app.run(port='5555', debug=True)

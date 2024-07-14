@@ -97,13 +97,24 @@ class Event(db.Model, SerializerMixin):
 
 
 
+class Review(db.Model, SerializerMixin):
+    __tablename__ = 'reviews'
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    user = db.relationship('User', back_populates='reviews')
+
+
 # user can organize multiple events.
 # user can make multiple payments.
 # user can bookmark multiple events.
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
 
-    serialize_rules = ('-payments.user', '-eventbookmarks.user', '-events.organizer', '-roles.user')
+    serialize_rules = ('-reviews.user','-payments.user', '-eventbookmarks.user', '-events.organizer', '-roles.user')
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, unique = True, nullable=False)
@@ -113,6 +124,7 @@ class User(db.Model, SerializerMixin):
     updated_at = db.Column(db.DateTime, server_default=db.func.now())
 
     roles = db.relationship('Role',back_populates='user', secondary=user_roles)
+    reviews = db.relationship('Review', back_populates='user', lazy=True, cascade='all, delete-orphan')
     events = db.relationship('Event', back_populates='organizer', lazy=True, cascade='all, delete-orphan')
     payments = db.relationship('Payment', back_populates='user', lazy=True, cascade='all, delete-orphan')
     eventbookmarks = db.relationship('EventBookmark', back_populates='user', lazy=True, cascade='all, delete-orphan')
