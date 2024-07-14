@@ -1,10 +1,10 @@
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from auth import jwt, auth_bp, bcrypt, allow
-from models import db, EventBookmark, Payment, Ticket, Event, User, Role, TokenBlocklist
+from models import db, EventBookmark, Payment, Ticket, Event, User, Role, TokenBlocklist,Review
 from flask_restful import Api, Resource
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
@@ -44,6 +44,7 @@ def check_admin():
     if user and any(role.name == 'admin' for role in user.roles):
         return jsonify(is_admin=True), 200
     return jsonify(is_admin=False), 200
+
 
 
 class Users(Resource):
@@ -559,6 +560,57 @@ class RoleById(Resource):
 api.add_resource(RoleById, '/roles/<int:id>')
 
 
+
+class Reviews(Resource):
+    def get(self):
+        reviews = Review.query.all()
+        return [review.to_dict() for review in reviews], 200
+
+    def post(self):
+        data = request.json
+        if 'text' not in data or 'rating' not in data or 'user_id' not in data:
+            return {"error": "Missing required fields"}, 400
+
+        new_review = Review(text=data['text'], rating=data['rating'], user_id=data['user_id'])
+
+        db.session.add(new_review)
+        db.session.commit()
+
+        return new_review.to_dict(), 201
+    
+api.add_resource(Reviews, '/reviews')
+
+
+
+class ReviewById(Resource):
+    def get(self, id):
+        review = Review.query.filter_by(id=id).first()
+        if not review:
+            return {"error": "Review not found"}, 404
+        return review.to_dict(), 200
+
+    def patch(self,id):
+        data = request.json
+        review = Review.query.filter_by(id=id).first()
+        if not review:
+            return {"error": "Review not found"}, 404
+
+        review.text = data.get('text', review.text)
+        review.rating = data.get('rating', review.rating)
+
+        db.session.commit()
+        return review.to_dict(), 200
+
+    def delete(self, id):
+        review = Review.query.filter_by(id=id).first()
+        if not review:
+            return {"error": "Review not found"}, 404
+
+        db.session.delete(review)
+        db.session.commit()
+        return {}, 204
+
+api.add_resource(ReviewById, '/reviews/<int:id>')    
 
 
 if __name__ == '__main__':
