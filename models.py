@@ -18,6 +18,10 @@ user_roles = db.Table(
     db.Column("user_id", db.ForeignKey("users.id"))
 )
 
+event_likes = db.Table('event_likes',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
+    db.Column('event_id', db.Integer, db.ForeignKey('events.id'))
+)
 
 # event bookmark belongs to one user, event.
 class EventBookmark(db.Model, SerializerMixin):
@@ -91,6 +95,7 @@ class Event(db.Model, SerializerMixin):
     organizer_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
     organizer = db.relationship('User', back_populates='events', lazy=True)
+    liked_by_users = db.relationship('User', secondary='event_likes', back_populates='liked_events')
     tickets = db.relationship('Ticket', back_populates='event', lazy=True, cascade='all, delete-orphan')
     payments = db.relationship('Payment', back_populates='event', lazy=True, cascade='all, delete-orphan')
     eventbookmarks = db.relationship('EventBookmark', back_populates='event', lazy=True, cascade='all, delete-orphan')
@@ -114,7 +119,7 @@ class Review(db.Model, SerializerMixin):
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
 
-    serialize_rules = ('-reviews.user','-payments.user', '-eventbookmarks.user', '-events.organizer', '-roles.user')
+    serialize_rules = ('liked_events.event_likes','-reviews.user','-payments.user', '-eventbookmarks.user', '-events.organizer', '-roles.user')
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, unique = True, nullable=False)
@@ -124,6 +129,7 @@ class User(db.Model, SerializerMixin):
     updated_at = db.Column(db.DateTime, server_default=db.func.now())
 
     roles = db.relationship('Role',back_populates='user', secondary=user_roles)
+    liked_events = db.relationship('Event', secondary='event_likes', back_populates='liked_by_users')
     reviews = db.relationship('Review', back_populates='user', lazy=True, cascade='all, delete-orphan')
     events = db.relationship('Event', back_populates='organizer', lazy=True, cascade='all, delete-orphan')
     payments = db.relationship('Payment', back_populates='user', lazy=True, cascade='all, delete-orphan')

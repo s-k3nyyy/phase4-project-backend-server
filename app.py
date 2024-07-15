@@ -4,14 +4,16 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from auth import jwt, auth_bp, bcrypt, allow
-from models import db, EventBookmark, Payment, Ticket, Event, User, Role, TokenBlocklist,Review
+from models import db, EventBookmark, Payment, Ticket, Event, User, Role, TokenBlocklist,Review, event_likes
 from flask_restful import Api, Resource
 from sqlalchemy.orm import Session
+from flask_login import current_user
 from datetime import timedelta, datetime
 
 
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -456,7 +458,7 @@ class Events(Resource):
 
         user = User.query.get(organizer_id)
         if not user:
-            return jsonify({"error": "Organizer not found"}), 400
+            return {"error": "Organizer not found"}, 400
         
         try:
             date_time = datetime.strptime(data.get('date_time'), '%Y-%m-%d %H:%M:%S')
@@ -471,13 +473,13 @@ class Events(Resource):
 
             db.session.add(new_event)
             db.session.commit()
-            return make_response(jsonify(new_event.to_dict()), 201)
+            return make_response(new_event.to_dict(), 201)
         except ValueError as e:
             db.session.rollback()
-            return make_response(jsonify({"message": "Error parsing date_time", "error": str(e)}), 400)
+            return make_response({"message": "Error parsing date_time", "error": str(e)}, 400)
         except Exception as e:
             db.session.rollback()
-            return make_response(jsonify({"message": "Error creating event", "error": str(e)}), 500)
+            return make_response({"message": "Error creating event", "error": str(e)}, 500)
     
 api.add_resource(Events, '/events')
 
@@ -610,7 +612,20 @@ class ReviewById(Resource):
         db.session.commit()
         return {}, 204
 
-api.add_resource(ReviewById, '/reviews/<int:id>')    
+api.add_resource(ReviewById, '/reviews/<int:id>') 
+
+
+
+@app.route('/events/<int:event_id>/like', methods=['POST', 'DELETE', 'OPTIONS'])
+def handle_like(event_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    if request.method == 'POST':
+        return jsonify({'message': 'Event liked'}), 200
+    elif request.method == 'DELETE':
+        return jsonify({'message': 'Event unliked'}), 200
+    else:
+        return jsonify({'error': 'Method not allowed'}), 405
 
 
 if __name__ == '__main__':
