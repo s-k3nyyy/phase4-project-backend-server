@@ -1,8 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy import MetaData
-# from sqlalchemy.orm import validates
-# from sqlalchemy.ext.associationproxy import association_proxy
 
 
 metadata = MetaData(
@@ -22,6 +20,7 @@ event_likes = db.Table('event_likes',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
     db.Column('event_id', db.Integer, db.ForeignKey('events.id'))
 )
+
 
 # event bookmark belongs to one user, event.
 class EventBookmark(db.Model, SerializerMixin):

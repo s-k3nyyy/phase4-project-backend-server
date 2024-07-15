@@ -37,7 +37,7 @@ with app.app_context():
 
     print("Creating Events...")
     events = []
-    for _ in range(10):
+    for _ in range(20):
         event = Event(
             title=fake.sentence(),
             description=fake.paragraph(),
@@ -55,7 +55,7 @@ with app.app_context():
     print("Creating tickets...")
     tickets = []
     for event in events:
-        for _ in range(randint(1, 3)):
+        for _ in range(randint(1, 5)):
             ticket = Ticket(
                 ticket_type=fake.word(),
                 price=fake.random_number(digits=2),
@@ -71,7 +71,7 @@ with app.app_context():
 
     print("Creating payments...")
     payments = []
-    for _ in range(3):
+    for _ in range(10):
         payment = Payment(
             amount=fake.random_number(digits=3),
             status=rc(['Success', 'Pending', 'Failed']),
@@ -89,7 +89,7 @@ with app.app_context():
     print("Creating event bookmarks...")
     event_bookmarks = []
     for user in users:
-        for _ in range(randint(1, 3)):
+        for _ in range(randint(1, 5)):
             event_bookmark = EventBookmark(
                 user_id=user.id,
                 event_id=fake.random_element(elements=Event.query.all()).id

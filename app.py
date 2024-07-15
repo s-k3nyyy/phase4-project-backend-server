@@ -120,9 +120,6 @@ api.add_resource(UserById, '/users/<int:id>')
 
 
 
-
-
-
 class EventBookmarks(Resource):
     def get(self):
         eventbookmarks = [eventbookmark.to_dict() for eventbookmark in EventBookmark.query.all()]
@@ -153,22 +150,6 @@ class EventBookmarks(Resource):
             return {"message": "Error creating event bookmark", "error": str(exc)}, 500   
     
 api.add_resource(EventBookmarks, '/eventbookmarks')
-
-class BuyTicket(Resource):
-    @jwt_required()
-    def post(self, event_id):
-        try:
-            user_id = get_jwt_identity()
-            ticket_type = request.json.get('ticket_type')
-            price = request.json.get('price')
-            ticket = Ticket(user_id=user_id, event_id=event_id, ticket_type=ticket_type, price=price, status='purchased')
-            db.session.add(ticket)
-            db.session.commit()
-            return jsonify({"message": "Ticket purchased successfully"}), 201
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"message": "Failed to purchase ticket", "error": str(e)}), 400
-api.add_resource(BuyTicket, '/events/<int:event_id>/buy_ticket')
 
 
 class BookmarkEvent(Resource):
@@ -485,8 +466,6 @@ api.add_resource(Events, '/events')
 
 
 class EventById(Resource):
-    @jwt_required()
-    @allow('admin')
     def get(self, id):
         event = Event.query.filter(Event.id == id).first()
         if not event:
@@ -626,6 +605,76 @@ def handle_like(event_id):
         return jsonify({'message': 'Event unliked'}), 200
     else:
         return jsonify({'error': 'Method not allowed'}), 405
+
+
+
+
+class BuyTickets(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            ticket_id = data.get('ticket_id')
+            user_id = data.get('user_id')
+
+            if not ticket_id or not user_id:
+                return {'error': 'Both ticket_id and user_id are required'}, 400
+
+            ticket = Ticket.query.get(ticket_id)
+            if not ticket:
+                return {'error': 'Ticket not found'}, 404
+            payment = Payment(
+                amount=ticket.price,
+                status='Pending',
+                user_id=user_id,
+                event_id=ticket.event_id,
+                ticket_id=ticket_id
+            )
+            db.session.add(payment)
+            db.session.commit()
+            return {'message': 'Ticket purchased successfully', 'payment_id': payment.id}, 200
+        except Exception as e:
+            return {'error': str(e)}, 500
+api.add_resource(BuyTickets, '/buy_ticket')
+
+
+
+@app.route('/buy-ticket/<int:id>', methods=['POST'])
+def buy_ticket(id):
+    try:
+        data = request.get_json()
+        ticket_id = id
+        status = data.get('status')
+        user_id = data.get('user_id')
+        price = data.get('price')
+        event_id = data.get('event_id')
+
+        if not (user_id and ticket_id and status and price and event_id):
+            return {'error': 'Missing required fields'}, 400
+
+        ticket = Ticket.query.filter_by(id=ticket_id).first()
+        if not ticket:
+            return {'error': 'Ticket not found'}, 404
+
+        event = Event.query.filter_by(id=event_id).first()
+        if not event:
+            return {'error': 'Event not found'}, 404
+
+        payment = Payment(
+            amount=price,
+            status=status,
+            user_id=user_id,
+            ticket_id=ticket_id,
+            event_id=event_id
+        )
+        db.session.add(payment)
+        db.session.commit()
+
+        return {'message': 'Ticket purchased successfully'}, 200
+
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+
 
 
 if __name__ == '__main__':
