@@ -38,10 +38,10 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
+    jwt_key = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     bookmarked_events = db.relationship('UserEvent', backref='user', lazy=True)
-
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -61,6 +61,7 @@ class Event(db.Model):
     photo_url = db.Column(db.String(255))  # Optional field for event photo URL
     event_date = db.Column(db.DateTime, nullable=False)
     tickets_remaining = db.Column(db.Integer, default=0)
+    jwt_required = db.Column(db.Boolean, default=False)
     users = db.relationship('UserEvent', backref='event', lazy=True)
 
 def __repr__(self):
@@ -97,6 +98,8 @@ class UserRegister(Resource):
         email = args['email']
         password = args['password']
         phone_number = args['phone_number']
+        if '@' not in email or '.' not in email:
+            return {'message': 'Invalid email format'}, 400
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
@@ -414,7 +417,7 @@ class EventDelete(Resource):
             logger.error(f"Error deleting event: {e}")
             return {'message': 'Failed to delete event'}, 500
 
-# API routes
+
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
 api.add_resource(UserBookmarkedEvents, '/user/<int:user_id>/bookmarked-events')
@@ -428,7 +431,6 @@ api.add_resource(UsersListResource, '/users')
 api.add_resource(TokenRefresh, '/refresh')
 api.add_resource(EventUpdate, '/event/update/<int:event_id>')
 api.add_resource(EventDelete, '/event/<int:event_id>/delete')
-
 api.add_resource(UserDelete, '/user/delete/<int:user_id>')
 api.add_resource(TokenValidateResource, '/token/validate')
 
