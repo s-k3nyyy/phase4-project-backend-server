@@ -13,6 +13,8 @@ class User(db.Model):
     phone_number = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    bookmarked_events = db.relationship('UserEvent', backref='user', lazy=True)
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -32,5 +34,15 @@ class Event(db.Model):
     photo_url = db.Column(db.String(255))  # Optional field for event photo URL
     event_date = db.Column(db.DateTime, nullable=False)
 
+    users = db.relationship('UserEvent', backref='event', lazy=True)
+
     def __repr__(self):
         return f'<Event {self.title}>'
+
+class UserEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<UserEvent User: {self.user_id}, Event: {self.event_id}>'
