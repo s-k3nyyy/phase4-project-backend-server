@@ -25,7 +25,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///ins
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-CORS(app, resources={r"*": {"origins": "https://s-k3nyyy.github.io/s-k3nyyy-phase4-project-frontend-client", "methods": ["GET", "POST", "PUT", "DELETE"]}})
+CORS(app, resources={r"/*": {"origins": "https://s-k3nyyy.github.io"}})
 
 
 api = Api(app)
