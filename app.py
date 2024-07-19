@@ -422,6 +422,15 @@ class EventDelete(Resource):
             logger.error(f"Error deleting event: {e}")
             return {'message': 'Failed to delete event'}, 500
 
+@app.route('/admin/<username>', methods=['DELETE'])
+def delete_admin(username):
+    admin = Admin.query.filter_by(username=username).first()
+    if not admin:
+        return jsonify({'error': 'Admin not found'}), 404
+    
+    db.session.delete(admin)
+    db.session.commit()
+    return jsonify({'message': 'Admin deleted successfully'}), 200
 
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
@@ -438,7 +447,6 @@ api.add_resource(EventUpdate, '/event/update/<int:event_id>')
 api.add_resource(EventDelete, '/event/<int:event_id>/delete')
 api.add_resource(UserDelete, '/user/delete/<int:user_id>')
 api.add_resource(TokenValidateResource, '/token/validate')
-
 
 if __name__ == '__main__':
     app.run(debug=True)

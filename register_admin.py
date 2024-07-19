@@ -30,6 +30,23 @@ class AdminCLI(cmd.Cmd):
         else:
             print(f'Failed to register admin: {response.json()}')
 
+    def do_delete(self, arg):
+        'Delete an admin: delete'
+        try:
+            username = input('Enter the username of the admin to delete: ')
+            self.delete_admin(username)
+        except Exception as e:
+            print(f'Error: {e}')
+
+    def delete_admin(self, username):
+        url = f'{BASE_URL}/admin/{username}'
+        response = requests.delete(url)
+        
+        if response.status_code == 200:
+            print('Admin deleted successfully')
+        else:
+            print(f'Failed to delete admin: {response.json()}')
+
     def do_exit(self, arg):
         'Exit the CLI'
         print('Exiting...')
