@@ -32,6 +32,9 @@ migrate = Migrate(app, db)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
+@app.route('/')
+def home():
+    return 'Hello, World!'
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
