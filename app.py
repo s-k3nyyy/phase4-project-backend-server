@@ -25,7 +25,7 @@ app.config['JWT_COOKIE_SAMESITE'] = 'None'
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-CORS(app, resources={r"/*": {"origins": "https://s-k3nyyy.github.io/s-k3nyyy-phase4-project-frontend-client"}})
+CORS(app, resources={r"*": {"origins": "https://s-k3nyyy.github.io/s-k3nyyy-phase4-project-frontend-client", "methods": ["GET", "POST", "PUT", "DELETE"]}})
 
 api = Api(app)
 migrate = Migrate(app, db)
