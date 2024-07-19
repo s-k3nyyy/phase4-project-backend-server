@@ -1,1 +1,7 @@
-.vercel
+# .gitignore
+venv/
+*.pyc
+__pycache__/
+instance/
+.env
+migrations/
