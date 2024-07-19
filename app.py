@@ -20,7 +20,7 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 app.config['JWT_ACCESS_CSRF_HEADER_NAME'] = 'X-CSRF-TOKEN'
 app.config['JWT_COOKIE_SECURE'] = True  # Ensure HTTPS
 app.config['JWT_COOKIE_SAMESITE'] = 'None'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///instance/app.db')
 # Initialize extensions
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
