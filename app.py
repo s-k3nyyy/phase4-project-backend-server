@@ -40,7 +40,17 @@ logging.basicConfig(level=logging.INFO)
 @app.route('/')
 def home():
     return 'Hello, World!'
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    transaction_id = db.Column(db.String(100), nullable=False, unique=True)
+    status = db.Column(db.String(50), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def __repr__(self):
+        return f'<Payment {self.transaction_id}>'
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -51,9 +61,10 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     bookmarked_events = db.relationship('UserEvent', backref='user', lazy=True)
+    payments = db.relationship('Payment', backref='user', lazy=True)
+
     def __repr__(self):
         return f'<User {self.username}>'
-
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -435,7 +446,6 @@ def delete_admin(username):
     db.session.delete(admin)
     db.session.commit()
     return jsonify({'message': 'Admin deleted successfully'}), 200
-# MPesa credentials
 def get_mpesa_access_token():
     consumer_key = '35KRcaSFHWxRKu3gLWgG3JgpAGUKA78rRA7BjeE2vN529tXJ'
     consumer_secret = 'xg4wAfPda9wGseSk5AN6yAoV6vAGNp4229esahXvARoxCRhXiCxxj33eR8q6eFp6'
@@ -444,6 +454,7 @@ def get_mpesa_access_token():
     response = requests.get(api_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
     token = response.json().get('access_token')
     return token
+
 def initiate_payment(phone_number, amount):
     access_token = get_mpesa_access_token()
     api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
@@ -463,26 +474,64 @@ def initiate_payment(phone_number, amount):
         'PartyA': phone_number,
         'PartyB': short_code,
         'PhoneNumber': phone_number,
-        'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
+        'CallBackURL': 'https://phase4-project-backend-server.onrender.com',
         'AccountReference': 'Test123',
         'TransactionDesc': 'Payment for test'
     }
 
     response = requests.post(api_url, json=payload, headers=headers)
     return response.json()
+
 @app.route('/callback', methods=['POST'])
 def mpesa_callback():
     data = request.json
     # Process the callback data as needed
+    # Assuming the callback contains transaction ID and status
+    transaction_id = data['Body']['stkCallback']['CheckoutRequestID']
+    result_code = data['Body']['stkCallback']['ResultCode']
+    result_desc = data['Body']['stkCallback']['ResultDesc']
+
+    payment = Payment.query.filter_by(transaction_id=transaction_id).first()
+    if payment:
+        payment.status = 'Completed' if result_code == 0 else 'Failed'
+        db.session.commit()
+
     return jsonify({'ResultCode': 0, 'ResultDesc': 'Accepted'})
+
 @app.route('/pay', methods=['POST'])
 def pay():
     data = request.get_json()
     phone_number = data.get('phone_number')
     amount = data.get('amount')
-    
+    user_id = data.get('user_id')  # Assuming user ID is sent in the request
+
     response = initiate_payment(phone_number, amount)
+
+    # Save the payment to the database
+    payment = Payment(
+        user_id=user_id,
+        amount=amount,
+        phone_number=phone_number,
+        transaction_id=response['CheckoutRequestID'],
+        status='Pending'
+    )
+    db.session.add(payment)
+    db.session.commit()
+
     return jsonify(response)
+
+@app.route('/payments', methods=['GET'])
+def get_payments():
+    payments = Payment.query.all()
+    return jsonify([{
+        'id': payment.id,
+        'user_id': payment.user_id,
+        'amount': payment.amount,
+        'phone_number': payment.phone_number,
+        'transaction_id': payment.transaction_id,
+        'status': payment.status,
+        'timestamp': payment.timestamp
+    } for payment in payments])
 
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
