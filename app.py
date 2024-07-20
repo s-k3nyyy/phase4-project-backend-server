@@ -466,8 +466,12 @@ def initiate_payment(phone_number, amount):
         passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
         password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
 
-        # Set the phone number to receive the payment
-        recipient_phone_number = '+254707499607'
+        # Remove trailing spaces from phone number
+        phone_number = phone_number.strip()
+
+        # Ensure phone number is in the correct format
+        if not phone_number.startswith('254'):
+            phone_number = '254' + phone_number[1:]
 
         payload = {
             'BusinessShortCode': short_code,
@@ -475,11 +479,11 @@ def initiate_payment(phone_number, amount):
             'Timestamp': timestamp,
             'TransactionType': 'CustomerPayBillOnline',
             'Amount': amount,
-            'PartyA': recipient_phone_number,  # Update PartyA to the recipient phone number
+            'PartyA': +254707499607,
             'PartyB': short_code,
-            'PhoneNumber': recipient_phone_number,  # Update PhoneNumber to the recipient phone number
+            'PhoneNumber': phone_number,
             'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
-            'AccountReference': 'Test123',
+            'AccountReference': '0707499607',
             'TransactionDesc': 'Payment for test'
         }
 
@@ -488,6 +492,11 @@ def initiate_payment(phone_number, amount):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         logging.info(f"Response: {response.json()}")
+
+        if 'CheckoutRequestID' not in response.json():
+            logging.error(f"MPesa API response missing 'CheckoutRequestID': {response.json()}")
+            return {'error': 'Failed to initiate payment'}
+
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error initiating payment: {e}")
