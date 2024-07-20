@@ -503,7 +503,6 @@ def initiate_payment(phone_number, amount):
         if e.response:
             logging.error(f"Response content: {e.response.content}")
         return {'error': 'Failed to initiate payment'}
-
 class PayResource(Resource):
     def post(self):
         try:
@@ -511,11 +510,10 @@ class PayResource(Resource):
             logging.info(f"Received data: {data}")
             phone_number = data.get('phone_number')
             amount = data.get('amount')
-            user_id = data.get('user_id')
 
-            if not user_id:
-                logging.error("user_id is missing from the request data")
-                return {'error': 'user_id is required'}, 400
+            if not phone_number or not amount:
+                logging.error("Phone number or amount is missing from the request data")
+                return {'error': 'Phone number and amount are required'}, 400
 
             response = initiate_payment(phone_number, amount)
 
@@ -523,33 +521,10 @@ class PayResource(Resource):
                 logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
                 return {'error': 'Failed to initiate payment'}, 500
 
-            payment = Payment(
-                user_id=user_id,
-                amount=amount,
-                phone_number=phone_number,
-                transaction_id=response['CheckoutRequestID'],
-                status='Pending'
-            )
-            db.session.add(payment)
-            db.session.commit()
-
             return response
         except Exception as e:
             logging.error(f"Error in PayResource: {str(e)}")
             return {'error': 'Internal server error'}, 500
-
-class PaymentsResource(Resource):
-    def get(self):
-        payments = Payment.query.all()
-        return [{
-            'id': payment.id,
-            'user_id': payment.user_id,
-            'amount': payment.amount,
-            'phone_number': payment.phone_number,
-            'transaction_id': payment.transaction_id,
-            'status': payment.status,
-            'timestamp': payment.timestamp
-        } for payment in payments]
 
 api.add_resource(PayResource, '/pay')
 api.add_resource(PaymentsResource, '/payments')
