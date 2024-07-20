@@ -508,11 +508,13 @@ class PayResource(Resource):
     def post(self):
         try:
             data = request.get_json()
+            logging.info(f"Received data: {data}")
             phone_number = data.get('phone_number')
             amount = data.get('amount')
             user_id = data.get('user_id')
 
             if not user_id:
+                logging.error("user_id is missing from the request data")
                 return {'error': 'user_id is required'}, 400
 
             response = initiate_payment(phone_number, amount)
@@ -551,7 +553,6 @@ class PaymentsResource(Resource):
 
 api.add_resource(PayResource, '/pay')
 api.add_resource(PaymentsResource, '/payments')
-
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
 api.add_resource(UserBookmarkedEvents, '/user/<int:user_id>/bookmarked-events')
