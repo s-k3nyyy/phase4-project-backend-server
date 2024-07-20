@@ -480,13 +480,17 @@ def initiate_payment(phone_number, amount):
             'TransactionDesc': 'Payment for test'
         }
 
+        logging.info(f"Payload: {payload}")
+
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
+        logging.info(f"Response: {response.json()}")
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error initiating payment: {e}")
+        if e.response:
+            logging.error(f"Response content: {e.response.content}")
         return {'error': 'Failed to initiate payment'}
-
 @app.route('/pay', methods=['POST'])
 def pay():
     try:
@@ -515,7 +519,6 @@ def pay():
     except Exception as e:
         logging.error(f"Error in /pay route: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-
 @app.route('/payments', methods=['GET'])
 def get_payments():
     payments = Payment.query.all()
