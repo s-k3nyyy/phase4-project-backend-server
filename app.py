@@ -474,18 +474,18 @@ def initiate_payment(phone_number, amount):
             phone_number = '254' + phone_number[1:]
 
         payload = {
-    'BusinessShortCode': short_code,
+    'BusinessShortCode': '174379',  # Your short code
     'Password': password,
     'Timestamp': timestamp,
     'TransactionType': 'CustomerPayBillOnline',
     'Amount': amount,
-    'PartyA': '254707499607', 
-    'PartyB': short_code,
-    'PhoneNumber': phone_number,
+    'PartyA': phone_number,  
+    'PartyB': '174379',  
+    'PhoneNumber': '+254707499607', 
     'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
     'AccountReference': '0707499607',
     'TransactionDesc': 'Payment for test',
-    'Name': 'event managment application'
+    'Name': 'My Event Management App'  # Your app's name
 }
 
         logging.info(f"Payload: {payload}")
@@ -515,6 +515,11 @@ def pay():
         amount = data.get('amount')
         user_id = data.get('user_id')  
 
+        # Ensure user_id is not None
+        if user_id is None:
+            logging.error("User ID is required")
+            return jsonify({'error': 'User ID is required'}), 400
+
         response = initiate_payment(phone_number, amount)
 
         if 'CheckoutRequestID' not in response:
@@ -522,7 +527,7 @@ def pay():
             return jsonify({'error': 'Failed to initiate payment'}), 500
 
         payment = Payment(
-            user_id=user_id,
+            user_id=user_id,  # Pass the valid user_id value
             amount=amount,
             phone_number=phone_number,
             transaction_id=response['CheckoutRequestID'],
@@ -535,7 +540,6 @@ def pay():
     except Exception as e:
         logging.error(f"Error in /pay route: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-
 @app.route('/payments', methods=['GET'])
 def get_payments():
     payments = Payment.query.all()
