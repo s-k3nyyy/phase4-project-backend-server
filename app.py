@@ -466,6 +466,13 @@ def initiate_payment(phone_number, amount):
         passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
         password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
 
+        # Remove trailing spaces from phone number
+        phone_number = phone_number.strip()
+        
+        # Ensure phone number is in the correct format
+        if not phone_number.startswith('254'):
+            phone_number = '254' + phone_number[1:]
+
         payload = {
             'BusinessShortCode': short_code,
             'Password': password,
@@ -475,7 +482,7 @@ def initiate_payment(phone_number, amount):
             'PartyA': phone_number,
             'PartyB': short_code,
             'PhoneNumber': phone_number,
-            'CallBackURL': 'https://phase4-project-backend-server.onrender.com',
+            'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
             'AccountReference': 'Test123',
             'TransactionDesc': 'Payment for test'
         }
@@ -490,8 +497,7 @@ def initiate_payment(phone_number, amount):
         logging.error(f"Error initiating payment: {e}")
         if e.response:
             logging.error(f"Response content: {e.response.content}")
-        return {'error': 'Failed to initiate payment'}
-@app.route('/pay', methods=['POST'])
+        return {'error': 'Failed to initiate payment'}@app.route('/pay', methods=['POST'])
 def pay():
     try:
         data = request.get_json()
