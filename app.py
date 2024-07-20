@@ -474,7 +474,7 @@ def initiate_payment(phone_number, amount):
         'PartyA': phone_number,
         'PartyB': short_code,
         'PhoneNumber': phone_number,
-        'CallBackURL': 'https://phase4-project-backend-server.onrender.com',
+        'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
         'AccountReference': 'Test123',
         'TransactionDesc': 'Payment for test'
     }
