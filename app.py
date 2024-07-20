@@ -446,6 +446,7 @@ def delete_admin(username):
     db.session.delete(admin)
     db.session.commit()
     return jsonify({'message': 'Admin deleted successfully'}), 200
+# Utility function for MPesa
 def get_mpesa_access_token():
     consumer_key = '35KRcaSFHWxRKu3gLWgG3JgpAGUKA78rRA7BjeE2vN529tXJ'
     consumer_secret = 'xg4wAfPda9wGseSk5AN6yAoV6vAGNp4229esahXvARoxCRhXiCxxj33eR8q6eFp6'
@@ -468,24 +469,22 @@ def initiate_payment(phone_number, amount):
 
         # Remove trailing spaces from phone number
         phone_number = phone_number.strip()
-
-        # Ensure phone number is in the correct format
         if not phone_number.startswith('254'):
             phone_number = '254' + phone_number[1:]
 
         payload = {
-            'BusinessShortCode': '174379',  # Your short code
-    'Password': password,
-    'Timestamp': timestamp,
-    'TransactionType': 'CustomerPayBillOnline',
-    'Amount': amount,
-    'PartyA': phone_number,  # User's phone number
-    'PartyB': '174379',  # Your short code
-    'PhoneNumber': '+254707499607',  # Your phone number
-    'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
-    'AccountReference': '0707499607',
-    'TransactionDesc': 'Payment for test',
-    'Name': 'My Event Management App'
+            'BusinessShortCode': short_code,
+            'Password': password,
+            'Timestamp': timestamp,
+            'TransactionType': 'CustomerPayBillOnline',
+            'Amount': amount,
+            'PartyA': phone_number,
+            'PartyB': short_code,
+            'PhoneNumber': phone_number,
+            'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
+            'AccountReference': '0707499607',
+            'TransactionDesc': 'Payment for test',
+            'Name': 'My Event Management App'
         }
 
         logging.info(f"Payload: {payload}")
@@ -503,52 +502,52 @@ def initiate_payment(phone_number, amount):
         logging.error(f"Error initiating payment: {e}")
         if e.response:
             logging.error(f"Response content: {e.response.content}")
-        return {'error': 'Failed to initiate payment'}@app.route('/pay', methods=['POST', 'OPTIONS'])
-def pay():
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'OK'}), 200  
-    
-    try:
-        data = request.get_json()
-        phone_number = data.get('phone_number')
-        amount = data.get('amount')
-        user_id = data.get('user_id')  
+        return {'error': 'Failed to initiate payment'}
 
-        response = initiate_payment(phone_number, amount)
+class PayResource(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            phone_number = data.get('phone_number')
+            amount = data.get('amount')
+            user_id = data.get('user_id')
 
-        if 'CheckoutRequestID' not in response:
-            logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
-            return jsonify({'error': 'Failed to initiate payment'}), 500
+            response = initiate_payment(phone_number, amount)
 
-        payment = Payment(
-            user_id=user_id,
-            amount=amount,
-            phone_number=phone_number,
-            transaction_id=response['CheckoutRequestID'],
-            status='Pending'
-        )
-        db.session.add(payment)
-        db.session.commit()
+            if 'CheckoutRequestID' not in response:
+                logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
+                return jsonify({'error': 'Failed to initiate payment'}), 500
 
-        return jsonify(response)
-    except Exception as e:
-        logging.error(f"Error in /pay route: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+            payment = Payment(
+                user_id=user_id,
+                amount=amount,
+                phone_number=phone_number,
+                transaction_id=response['CheckoutRequestID'],
+                status='Pending'
+            )
+            db.session.add(payment)
+            db.session.commit()
 
-@app.route('/payments', methods=['GET'])
-def get_payments():
-    payments = Payment.query.all()
-    return jsonify([{
-        'id': payment.id,
-        'user_id': payment.user_id,
-        'amount': payment.amount,
-        'phone_number': payment.phone_number,
-        'transaction_id': payment.transaction_id,
-        'status': payment.status,
-        'timestamp': payment.timestamp
-    } for payment in payments])
+            return jsonify(response)
+        except Exception as e:
+            logging.error(f"Error in PayResource: {str(e)}")
+            return jsonify({'error': 'Internal server error'}), 500
 
+class PaymentsResource(Resource):
+    def get(self):
+        payments = Payment.query.all()
+        return jsonify([{
+            'id': payment.id,
+            'user_id': payment.user_id,
+            'amount': payment.amount,
+            'phone_number': payment.phone_number,
+            'transaction_id': payment.transaction_id,
+            'status': payment.status,
+            'timestamp': payment.timestamp
+        } for payment in payments])
 
+api.add_resource(PayResource, '/pay')
+api.add_resource(PaymentsResource, '/payments')
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
 api.add_resource(UserBookmarkedEvents, '/user/<int:user_id>/bookmarked-events')
