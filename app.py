@@ -492,13 +492,17 @@ def initiate_payment(phone_number, amount):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         logging.info(f"Response: {response.json()}")
+
+        if 'CheckoutRequestID' not in response.json():
+            logging.error(f"MPesa API response missing 'CheckoutRequestID': {response.json()}")
+            return {'error': 'Failed to initiate payment'}
+
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error initiating payment: {e}")
         if e.response:
             logging.error(f"Response content: {e.response.content}")
         return {'error': 'Failed to initiate payment'}
-
 @app.route('/pay', methods=['POST', 'OPTIONS'])
 def pay():
     if request.method == 'OPTIONS':
