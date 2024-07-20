@@ -1,6 +1,10 @@
 
 from datetime import datetime, timedelta
 import logging
+import requests
+from requests.auth import HTTPBasicAuth
+import base64
+from datetime import datetime
 import os
 from flask import Flask, jsonify, request, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -431,6 +435,54 @@ def delete_admin(username):
     db.session.delete(admin)
     db.session.commit()
     return jsonify({'message': 'Admin deleted successfully'}), 200
+# MPesa credentials
+def get_mpesa_access_token():
+    consumer_key = '35KRcaSFHWxRKu3gLWgG3JgpAGUKA78rRA7BjeE2vN529tXJ'
+    consumer_secret = 'xg4wAfPda9wGseSk5AN6yAoV6vAGNp4229esahXvARoxCRhXiCxxj33eR8q6eFp6'
+    api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
+
+    response = requests.get(api_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
+    token = response.json().get('access_token')
+    return token
+def initiate_payment(phone_number, amount):
+    access_token = get_mpesa_access_token()
+    api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+    headers = {'Authorization': f'Bearer {access_token}'}
+
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    short_code = '174379'
+    passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
+    password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
+
+    payload = {
+        'BusinessShortCode': short_code,
+        'Password': password,
+        'Timestamp': timestamp,
+        'TransactionType': 'CustomerPayBillOnline',
+        'Amount': amount,
+        'PartyA': phone_number,
+        'PartyB': short_code,
+        'PhoneNumber': phone_number,
+        'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
+        'AccountReference': 'Test123',
+        'TransactionDesc': 'Payment for test'
+    }
+
+    response = requests.post(api_url, json=payload, headers=headers)
+    return response.json()
+@app.route('/callback', methods=['POST'])
+def mpesa_callback():
+    data = request.json
+    # Process the callback data as needed
+    return jsonify({'ResultCode': 0, 'ResultDesc': 'Accepted'})
+@app.route('/pay', methods=['POST'])
+def pay():
+    data = request.get_json()
+    phone_number = data.get('phone_number')
+    amount = data.get('amount')
+    
+    response = initiate_payment(phone_number, amount)
+    return jsonify(response)
 
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
