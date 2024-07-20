@@ -485,7 +485,8 @@ def initiate_payment(phone_number, amount):
 @app.route('/callback', methods=['POST'])
 def mpesa_callback():
     data = request.json
-    # Process the callback data as needed
+    logging.info(f"MPesa callback data received: {data}")
+    
     # Assuming the callback contains transaction ID and status
     transaction_id = data['Body']['stkCallback']['CheckoutRequestID']
     result_code = data['Body']['stkCallback']['ResultCode']
@@ -503,9 +504,14 @@ def pay():
     data = request.get_json()
     phone_number = data.get('phone_number')
     amount = data.get('amount')
-    user_id = data.get('user_id')  # Assuming user ID is sent in the request
+    user_id = data.get('user_id')  
 
     response = initiate_payment(phone_number, amount)
+
+    # Check if 'CheckoutRequestID' is in the response
+    if 'CheckoutRequestID' not in response:
+        logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
+        return jsonify({'error': 'Failed to initiate payment'}), 500
 
     # Save the payment to the database
     payment = Payment(
@@ -519,7 +525,6 @@ def pay():
     db.session.commit()
 
     return jsonify(response)
-
 @app.route('/payments', methods=['GET'])
 def get_payments():
     payments = Payment.query.all()
