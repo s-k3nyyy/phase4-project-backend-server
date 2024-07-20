@@ -474,19 +474,18 @@ def initiate_payment(phone_number, amount):
             phone_number = '254' + phone_number[1:]
 
         payload = {
-     'BusinessShortCode': '174379',  # Your short code
-    'Password': password,
-    'Timestamp': timestamp,
-    'TransactionType': 'CustomerPayBillOnline',
-    'Amount': amount,
-    'PartyA': phone_number,  # User's phone number
-    'PartyB': '174379',  # Your short code
-    'PhoneNumber': '+254707499607',  # Your phone number
-    'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
-    'AccountReference': '0707499607',
-    'TransactionDesc': 'Payment for test',
-    'Name': 'My Event Management App'  # Your app's name
-}
+            'BusinessShortCode': 174379,
+            'Password': password,
+            'Timestamp': timestamp,
+            'TransactionType': 'CustomerPayBillOnline',
+            'Amount': amount,
+            'PartyA': phone_number,
+            'PartyB': 174379,
+            'PhoneNumber': 0707499607,
+            'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
+            'AccountReference': 'appp',
+            'TransactionDesc': 'Payment for test'
+        }
 
         logging.info(f"Payload: {payload}")
 
