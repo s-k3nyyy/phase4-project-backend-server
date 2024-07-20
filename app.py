@@ -464,8 +464,8 @@ def initiate_payment(phone_number, amount):
         headers = {'Authorization': f'Bearer {access_token}'}
 
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        short_code = '174379'
-        passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
+        short_code = '174379'  # Replace with your actual shortcode
+        passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  # Replace with your actual passkey
         password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
 
         # Remove trailing spaces from phone number
@@ -473,15 +473,16 @@ def initiate_payment(phone_number, amount):
         if not phone_number.startswith('254'):
             phone_number = '254' + phone_number[1:]
 
+        # Update payload to send payments to your phone number
         payload = {
             'BusinessShortCode': short_code,
             'Password': password,
             'Timestamp': timestamp,
             'TransactionType': 'CustomerPayBillOnline',
             'Amount': amount,
-            'PartyA': phone_number,
-            'PartyB': short_code,
-            'PhoneNumber': phone_number,
+            'PartyA': phone_number, 
+            'PartyB': '174379',  
+            'PhoneNumber': '0707499607', 
             'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
             'AccountReference': '0707499607',
             'TransactionDesc': 'Payment for test',
@@ -504,7 +505,6 @@ def initiate_payment(phone_number, amount):
         if e.response:
             logging.error(f"Response content: {e.response.content}")
         return {'error': 'Failed to initiate payment'}
-
 class PayResource(Resource):
     def post(self):
         try:
