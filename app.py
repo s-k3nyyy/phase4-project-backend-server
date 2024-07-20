@@ -460,7 +460,7 @@ def get_mpesa_access_token():
 def initiate_payment(phone_number, amount):
     try:
         access_token = get_mpesa_access_token()
-        api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        api_url = ' https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
         headers = {'Authorization': f'Bearer {access_token}'}
 
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -482,7 +482,7 @@ def initiate_payment(phone_number, amount):
             'TransactionDesc': 'Payment for test'
         }
 
-        response = requests.post(api_url, json=payload, headers=headers)
+        response = requests.post('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', headers=headers, json=payload)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -491,30 +491,33 @@ def initiate_payment(phone_number, amount):
 
 @app.route('/pay', methods=['POST'])
 def pay():
-    data = request.get_json()
-    phone_number = data.get('phone_number')
-    amount = data.get('amount')
-    user_id = data.get('user_id')  
+    try:
+        data = request.get_json()
+        phone_number = data.get('phone_number')
+        amount = data.get('amount')
+        user_id = data.get('user_id')  
 
-    response = initiate_payment(phone_number, amount)
+        response = initiate_payment(phone_number, amount)
 
-    # Check if 'CheckoutRequestID' is in the response
-    if 'CheckoutRequestID' not in response:
-        logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
-        return jsonify({'error': 'Failed to initiate payment'}), 500
+        if 'CheckoutRequestID' not in response:
+            logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
+            return jsonify({'error': 'Failed to initiate payment'}), 500
 
-    # Save the payment to the database
-    payment = Payment(
-        user_id=user_id,
-        amount=amount,
-        phone_number=phone_number,
-        transaction_id=response['CheckoutRequestID'],
-        status='Pending'
-    )
-    db.session.add(payment)
-    db.session.commit()
+        payment = Payment(
+            user_id=user_id,
+            amount=amount,
+            phone_number=phone_number,
+            transaction_id=response['CheckoutRequestID'],
+            status='Pending'
+        )
+        db.session.add(payment)
+        db.session.commit()
 
-    return jsonify(response)
+        return jsonify(response)
+    except Exception as e:
+        logging.error(f"Error in /pay route: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/payments', methods=['GET'])
 def get_payments():
     payments = Payment.query.all()
