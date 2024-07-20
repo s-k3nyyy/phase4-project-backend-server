@@ -455,50 +455,68 @@ def get_mpesa_access_token():
     token = response.json().get('access_token')
     return token
 
+
+
 def initiate_payment(phone_number, amount):
-    access_token = get_mpesa_access_token()
-    api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
-    headers = {'Authorization': f'Bearer {access_token}'}
+    try:
+        access_token = get_mpesa_access_token()
+        api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        headers = {'Authorization': f'Bearer {access_token}'}
 
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    short_code = '174379'
-    passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-    password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        short_code = '174379'
+        passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
+        password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
 
-    payload = {
-        'BusinessShortCode': short_code,
-        'Password': password,
-        'Timestamp': timestamp,
-        'TransactionType': 'CustomerPayBillOnline',
-        'Amount': amount,
-        'PartyA': phone_number,
-        'PartyB': short_code,
-        'PhoneNumber': phone_number,
-        'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
-        'AccountReference': 'Test123',
-        'TransactionDesc': 'Payment for test'
-    }
+        payload = {
+            'BusinessShortCode': short_code,
+            'Password': password,
+            'Timestamp': timestamp,
+            'TransactionType': 'CustomerPayBillOnline',
+            'Amount': amount,
+            'PartyA': phone_number,
+            'PartyB': short_code,
+            'PhoneNumber': phone_number,
+            'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
+            'AccountReference': 'Test123',
+            'TransactionDesc': 'Payment for test'
+        }
 
-    response = requests.post(api_url, json=payload, headers=headers)
-    return response.json()
+        response = requests.post(api_url, json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error initiating payment: {e}")
+        return {'error': 'Failed to initiate payment'}
 
-@app.route('/callback', methods=['POST'])
-def mpesa_callback():
-    data = request.json
-    logging.info(f"MPesa callback data received: {data}")
-    
-    # Assuming the callback contains transaction ID and status
-    transaction_id = data['Body']['stkCallback']['CheckoutRequestID']
-    result_code = data['Body']['stkCallback']['ResultCode']
-    result_desc = data['Body']['stkCallback']['ResultDesc']
+@app.route('/pay', methods=['POST'])
+def pay():
+    try:
+        data = request.get_json()
+        phone_number = data.get('phone_number')
+        amount = data.get('amount')
+        user_id = data.get('user_id')  
 
-    payment = Payment.query.filter_by(transaction_id=transaction_id).first()
-    if payment:
-        payment.status = 'Completed' if result_code == 0 else 'Failed'
+        response = initiate_payment(phone_number, amount)
+
+        if 'CheckoutRequestID' not in response:
+            logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
+            return jsonify({'error': 'Failed to initiate payment'}), 500
+
+        payment = Payment(
+            user_id=user_id,
+            amount=amount,
+            phone_number=phone_number,
+            transaction_id=response['CheckoutRequestID'],
+            status='Pending'
+        )
+        db.session.add(payment)
         db.session.commit()
 
-    return jsonify({'ResultCode': 0, 'ResultDesc': 'Accepted'})
-
+        return jsonify(response)
+    except Exception as e:
+        logging.error(f"Error processing payment: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 @app.route('/pay', methods=['POST'])
 def pay():
     data = request.get_json()
@@ -537,6 +555,11 @@ def get_payments():
         'status': payment.status,
         'timestamp': payment.timestamp
     } for payment in payments])
+def initiate_payment(phone_number, amount):
+    return {
+        'CheckoutRequestID': 'mock-checkout-request-id',
+        'ResponseCode': '0'
+    }
 
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
