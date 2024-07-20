@@ -512,11 +512,14 @@ class PayResource(Resource):
             amount = data.get('amount')
             user_id = data.get('user_id')
 
+            if not user_id:
+                return {'error': 'user_id is required'}, 400
+
             response = initiate_payment(phone_number, amount)
 
             if 'CheckoutRequestID' not in response:
                 logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
-                return jsonify({'error': 'Failed to initiate payment'}), 500
+                return {'error': 'Failed to initiate payment'}, 500
 
             payment = Payment(
                 user_id=user_id,
@@ -528,15 +531,15 @@ class PayResource(Resource):
             db.session.add(payment)
             db.session.commit()
 
-            return jsonify(response)
+            return response
         except Exception as e:
             logging.error(f"Error in PayResource: {str(e)}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return {'error': 'Internal server error'}, 500
 
 class PaymentsResource(Resource):
     def get(self):
         payments = Payment.query.all()
-        return jsonify([{
+        return [{
             'id': payment.id,
             'user_id': payment.user_id,
             'amount': payment.amount,
@@ -544,10 +547,11 @@ class PaymentsResource(Resource):
             'transaction_id': payment.transaction_id,
             'status': payment.status,
             'timestamp': payment.timestamp
-        } for payment in payments])
+        } for payment in payments]
 
 api.add_resource(PayResource, '/pay')
 api.add_resource(PaymentsResource, '/payments')
+
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
 api.add_resource(UserBookmarkedEvents, '/user/<int:user_id>/bookmarked-events')
