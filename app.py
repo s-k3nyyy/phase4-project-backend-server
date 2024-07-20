@@ -491,34 +491,6 @@ def initiate_payment(phone_number, amount):
 
 @app.route('/pay', methods=['POST'])
 def pay():
-    try:
-        data = request.get_json()
-        phone_number = data.get('phone_number')
-        amount = data.get('amount')
-        user_id = data.get('user_id')  
-
-        response = initiate_payment(phone_number, amount)
-
-        if 'CheckoutRequestID' not in response:
-            logging.error(f"MPesa API response missing 'CheckoutRequestID': {response}")
-            return jsonify({'error': 'Failed to initiate payment'}), 500
-
-        payment = Payment(
-            user_id=user_id,
-            amount=amount,
-            phone_number=phone_number,
-            transaction_id=response['CheckoutRequestID'],
-            status='Pending'
-        )
-        db.session.add(payment)
-        db.session.commit()
-
-        return jsonify(response)
-    except Exception as e:
-        logging.error(f"Error processing payment: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
-@app.route('/pay', methods=['POST'])
-def pay():
     data = request.get_json()
     phone_number = data.get('phone_number')
     amount = data.get('amount')
