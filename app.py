@@ -468,7 +468,7 @@ def initiate_payment(phone_number, amount):
 
         # Remove trailing spaces from phone number
         phone_number = phone_number.strip()
-        
+
         # Ensure phone number is in the correct format
         if not phone_number.startswith('254'):
             phone_number = '254' + phone_number[1:]
@@ -497,8 +497,13 @@ def initiate_payment(phone_number, amount):
         logging.error(f"Error initiating payment: {e}")
         if e.response:
             logging.error(f"Response content: {e.response.content}")
-        return {'error': 'Failed to initiate payment'}@app.route('/pay', methods=['POST'])
+        return {'error': 'Failed to initiate payment'}
+
+@app.route('/pay', methods=['POST', 'OPTIONS'])
 def pay():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'OK'}), 200  
+    
     try:
         data = request.get_json()
         phone_number = data.get('phone_number')
@@ -525,6 +530,7 @@ def pay():
     except Exception as e:
         logging.error(f"Error in /pay route: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/payments', methods=['GET'])
 def get_payments():
     payments = Payment.query.all()
@@ -537,6 +543,7 @@ def get_payments():
         'status': payment.status,
         'timestamp': payment.timestamp
     } for payment in payments])
+
 
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
