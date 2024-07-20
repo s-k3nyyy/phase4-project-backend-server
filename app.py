@@ -455,12 +455,10 @@ def get_mpesa_access_token():
     token = response.json().get('access_token')
     return token
 
-
-
 def initiate_payment(phone_number, amount):
     try:
         access_token = get_mpesa_access_token()
-        api_url = ' https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
         headers = {'Authorization': f'Bearer {access_token}'}
 
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -477,12 +475,12 @@ def initiate_payment(phone_number, amount):
             'PartyA': phone_number,
             'PartyB': short_code,
             'PhoneNumber': phone_number,
-            'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
+            'CallBackURL': 'https://phase4-project-backend-server.onrender.com',
             'AccountReference': 'Test123',
             'TransactionDesc': 'Payment for test'
         }
 
-        response = requests.post('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', headers=headers, json=payload)
+        response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -530,11 +528,6 @@ def get_payments():
         'status': payment.status,
         'timestamp': payment.timestamp
     } for payment in payments])
-def initiate_payment(phone_number, amount):
-    return {
-        'CheckoutRequestID': 'mock-checkout-request-id',
-        'ResponseCode': '0'
-    }
 
 api.add_resource(AllEvents, '/events')
 api.add_resource(SingleEvent, '/events/<int:event_id>')
