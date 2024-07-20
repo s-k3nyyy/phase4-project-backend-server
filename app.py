@@ -484,7 +484,8 @@ def initiate_payment(phone_number, amount):
             'PhoneNumber': phone_number,
             'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
             'AccountReference': '0707499607',
-            'TransactionDesc': 'Payment for test'
+            'TransactionDesc': 'Payment for test',
+            'Name': 'event managment application'
         }
 
         logging.info(f"Payload: {payload}")
