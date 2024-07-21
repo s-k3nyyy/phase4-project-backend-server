@@ -480,7 +480,7 @@ def initiate_payment(phone_number, amount):
             'TransactionType': 'CustomerPayBillOnline',
             'Amount': amount,
             'PartyA': phone_number,
-            'PartyB': '+254707499607',
+            'PartyB': '174379',
             'PhoneNumber': phone_number,
             'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
             'AccountReference': phone_number,
