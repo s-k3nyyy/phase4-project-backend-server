@@ -464,29 +464,27 @@ def initiate_payment(phone_number, amount):
         headers = {'Authorization': f'Bearer {access_token}'}
 
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        short_code = '174379'  # Replace with your actual shortcode
-        passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  # Replace with your actual passkey
+        short_code = '174379'
+        passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
         password = base64.b64encode(f'{short_code}{passkey}{timestamp}'.encode()).decode()
 
-        # Remove trailing spaces from phone number
+        # Ensure the phone number is in the correct format
         phone_number = phone_number.strip()
         if not phone_number.startswith('254'):
             phone_number = '254' + phone_number[1:]
-        amount = float(amount)
-        # Update payload to send payments to your phone number
+
         payload = {
             'BusinessShortCode': short_code,
             'Password': password,
             'Timestamp': timestamp,
             'TransactionType': 'CustomerPayBillOnline',
             'Amount': amount,
-            'PartyA': phone_number, 
-            'PartyB': '174379',  
-            'PhoneNumber': '+254707499607', 
+            'PartyA': phone_number,
+            'PartyB': '+254707499607',
+            'PhoneNumber': phone_number,
             'CallBackURL': 'https://phase4-project-backend-server.onrender.com/callback',
-            'AccountReference': '+254707499607',
-            'TransactionDesc': 'Payment for test',
-            'Name': 'My Event Management App'
+            'AccountReference': phone_number,
+            'TransactionDesc': 'Payment for event',
         }
 
         logging.info(f"Payload: {payload}")
@@ -512,6 +510,7 @@ class PayResource(Resource):
             logging.info(f"Received data: {data}")
             phone_number = data.get('phone_number')
             amount = data.get('amount')
+            user_id = data.get('user_id')  # Assuming user_id is passed from the frontend
 
             response = initiate_payment(phone_number, amount)
 
@@ -523,7 +522,8 @@ class PayResource(Resource):
                 amount=amount,
                 phone_number=phone_number,
                 transaction_id=response['CheckoutRequestID'],
-                status='Pending'
+                status='Pending',
+                user_id=user_id
             )
             db.session.add(payment)
             db.session.commit()
